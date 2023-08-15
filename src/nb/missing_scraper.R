@@ -120,4 +120,79 @@ get_coordinates <- function(addresses) {
 
 coordinates <- get_coordinates(citizens[1:20, 10])
 
-#*** testing
+
+## test crawling pages
+url <- "https://desaparecidos.policia.gob.pe/Registrogeneral.aspx#"
+rd <- rsDriver(browser = "firefox",
+               chromever = NULL,
+               verbose = FALSE,
+               port = free_port())
+
+remDr <- rd[["client"]] # nolint: object_name_linter.
+remDr$navigate(url)
+
+# initialize variables
+tbl <- data.frame()
+section <- 1
+
+# wait until the page is already downloaded and then grab the pages per section
+if (section == 2) {
+  remDr$findElements(using = "link text", "...")[[1]]$clickElement()
+} else if (section > 2) {
+  remDr$findElements(using = "link text", "...")[[2]]$clickElement()
+}
+if (section > 1) {
+  old_page <- html_xml %>%
+    html_nodes("table.mGrid") %>%
+    html_nodes("table") %>%
+    html_nodes("span") %>%
+    html_text()
+  next_page <- old_page
+  while (next_page == old_page) {
+    html_xml <- remDr$getPageSource()[[1]] %>% read_html()
+    next_page <- html_xml %>%
+      html_nodes("table.mGrid") %>%
+      html_nodes("table") %>%
+      html_nodes("span") %>%
+      html_text()
+  }
+} else if (section == 1) {
+  html_doc <- remDr$getPageSource()[[1]]
+  html_xml <- read_html(html_doc)
+}
+
+# scrape the page numbers and remove "..."
+pages <- html_xml %>%
+  html_nodes("table.mGrid") %>%
+  html_nodes("table") %>%
+  html_nodes("a, span") %>%
+  html_text()
+pages <- pages[!pages == "..."]
+
+# extract info
+for (page in pages) {
+  if (!grepl("1$", page)) {
+    # wait until the next page in the form is already downloaded
+    old_page <- html_xml %>%
+      html_nodes("table.mGrid") %>%
+      html_nodes("table") %>%
+      html_nodes("span") %>%
+      html_text()
+    remDr$findElements(using = "link text", page)[[1]]$clickElement()
+    next_page <- old_page
+    Sys.sleep(0.1)
+    while (next_page == old_page) {
+      html_xml <- remDr$getPageSource()[[1]] %>% read_html()
+      next_page <- html_xml %>%
+        html_nodes("table.mGrid") %>%
+        html_nodes("table") %>%
+        html_nodes("span") %>%
+        html_text()
+    }
+  }
+  temp <- html_xml %>% html_nodes("table.mGrid") %>% html_table() %>% .[[1]]
+  temp <- temp[1:15, 1:5]
+  # temp$page <- page
+  tbl <- rbind(tbl, temp)
+}
+section <- section + 1

@@ -14,13 +14,13 @@ get_missed_urls <- function(url, sections) {
                  verbose = FALSE,
                  port = free_port())
 
-  remDr <- rd[["client"]] # nolint
+  remdr <- rd[["client"]]
   urls <- c()
   for (section in sections){
     new_url <- paste0(url, section)
-    remDr$navigate(new_url)
+    remdr$navigate(new_url)
     # open the page
-    html <- remDr$getPageSource()[[1]]
+    html <- remdr$getPageSource()[[1]]
     # list of suffix. They are every 5 elements
     suffix <- read_html(html) %>%
       html_nodes(".card-body a") %>%
@@ -49,12 +49,12 @@ scrape_citizens <- function(urls) {
                  verbose = FALSE,
                  port = free_port())
 
-  remDr <- rd[["client"]] # nolint
+  remdr <- rd[["client"]]
   citizens <- list()
   for (i in seq(1, length(urls))){
     # open the page
-    remDr$navigate(urls[i])
-    html <- remDr$getPageSource()[[1]]
+    remdr$navigate(urls[i])
+    html <- remdr$getPageSource()[[1]]
     raw <- read_html(html) %>%
       html_nodes(".detalle-desaparecidos-p1 b") %>%
       html_text()
@@ -79,7 +79,7 @@ scrape_citizens <- function(urls) {
 citizens <- scrape_citizens(missed_urls)
 
 # write json file from dataframe
-# ** write(toJSON(citizens), "citizens.json")
+# ** write(toJSON(citizens), "citizens_sample.json")
 
 get_coordinates <- function(addresses) {
   # convert input into a list
@@ -121,78 +121,74 @@ get_coordinates <- function(addresses) {
 coordinates <- get_coordinates(citizens[1:20, 10])
 
 
-## test crawling pages
+## crawling pages
 url <- "https://desaparecidos.policia.gob.pe/Registrogeneral.aspx#"
 rd <- rsDriver(browser = "firefox",
                chromever = NULL,
                verbose = FALSE,
                port = free_port())
 
-remDr <- rd[["client"]] # nolint: object_name_linter.
-remDr$navigate(url)
+remdr <- rd[["client"]]
+remdr$navigate(url)
 
 # initialize variables
 tbl <- data.frame()
-section <- 1
+# set the number of sections you want to scrape. every section has 10 pages
+# and 15 citizens
+n <- 4
+sections <- seq(1:n)
 
-# wait until the page is already downloaded and then grab the pages per section
-if (section == 2) {
-  remDr$findElements(using = "link text", "...")[[1]]$clickElement()
-} else if (section > 2) {
-  remDr$findElements(using = "link text", "...")[[2]]$clickElement()
-}
-if (section > 1) {
-  old_page <- html_xml %>%
+page_has_loaded <- function(remote_driver, old_html_xml, page, index) {
+  # returns an xml document when it has already downloaded
+  # index: to select which "..." page choose since section 2
+  # page: the page you are scraping either "1", "2" or some number or "..."
+  old_page <- old_html_xml %>%
     html_nodes("table.mGrid") %>%
     html_nodes("table") %>%
     html_nodes("span") %>%
     html_text()
+  remote_driver$findElements(using = "link text", page)[[index]]$clickElement()
   next_page <- old_page
+  Sys.sleep(0.1)
+  # wait until the next page in the form is already downloaded
   while (next_page == old_page) {
-    html_xml <- remDr$getPageSource()[[1]] %>% read_html()
+    html_xml <- remote_driver$getPageSource()[[1]] %>% read_html()
     next_page <- html_xml %>%
       html_nodes("table.mGrid") %>%
       html_nodes("table") %>%
       html_nodes("span") %>%
       html_text()
   }
-} else if (section == 1) {
-  html_doc <- remDr$getPageSource()[[1]]
-  html_xml <- read_html(html_doc)
+  return(html_xml)
 }
 
-# scrape the page numbers and remove "..."
-pages <- html_xml %>%
-  html_nodes("table.mGrid") %>%
-  html_nodes("table") %>%
-  html_nodes("a, span") %>%
-  html_text()
-pages <- pages[!pages == "..."]
-
-# extract info
-for (page in pages) {
-  if (!grepl("1$", page)) {
-    # wait until the next page in the form is already downloaded
-    old_page <- html_xml %>%
-      html_nodes("table.mGrid") %>%
-      html_nodes("table") %>%
-      html_nodes("span") %>%
-      html_text()
-    remDr$findElements(using = "link text", page)[[1]]$clickElement()
-    next_page <- old_page
-    Sys.sleep(0.1)
-    while (next_page == old_page) {
-      html_xml <- remDr$getPageSource()[[1]] %>% read_html()
-      next_page <- html_xml %>%
-        html_nodes("table.mGrid") %>%
-        html_nodes("table") %>%
-        html_nodes("span") %>%
-        html_text()
+for (section in sections) {
+  # scrape the page numbers and remove "..."
+  if (section == 1) {
+    html_xml <- remdr$getPageSource()[[1]] %>% read_html()
+  } else {
+    if (section == 2) {
+      html_xml <- page_has_loaded(remdr, html_xml, "...", 1)
+    } else if (section > 2) {
+      html_xml <- page_has_loaded(remdr, html_xml, "...", 2)
     }
   }
-  temp <- html_xml %>% html_nodes("table.mGrid") %>% html_table() %>% .[[1]]
-  temp <- temp[1:15, 1:5]
-  # temp$page <- page
-  tbl <- rbind(tbl, temp)
+  pages <- html_xml %>%
+    html_nodes("table.mGrid") %>%
+    html_nodes("table") %>%
+    html_nodes("a, span") %>%
+    html_text()
+  pages <- pages[!pages == "..."]
+  # extract info by page
+  for (page in pages) {
+    # pages that end in 1 are skipped. like 1, 11, 21 etc
+    if (!grepl("1$", page)) {
+      html_xml <- page_has_loaded(remdr, html_xml, page, 1)
+    }
+    temp <- html_xml %>% html_nodes("table.mGrid") %>% html_table() %>% .[[1]]
+    temp <- temp[1:15, 1:5]
+    temp$page <- page
+    tbl <- rbind(tbl, temp)
+  }
 }
-section <- section + 1
+# write.csv(tbl, "../data/citizens.csv")

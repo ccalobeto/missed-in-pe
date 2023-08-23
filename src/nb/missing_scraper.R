@@ -152,7 +152,8 @@ scrape_citizens <- function(url, n, state) {
       html_nodes("table") %>%
       html_nodes("span") %>%
       html_text()
-    remote_driver$findElements(using = "link text", page)[[index]]$clickElement()
+    remote_driver$findElements(using = "link text",
+                               page)[[index]]$clickElement()
     next_page <- old_page
     Sys.sleep(0.1)
     # wait until the next page in the form is already downloaded
@@ -218,33 +219,33 @@ write.csv(citizens, "../data/citizens.csv")
 # import data
 raw_citizens <- read.csv("../data/citizens.csv")
 # set columns types
-raw_citizens <- raw_citizens[, c("police_unit", "names", 
-                                 "event_date", "event_place",   "missing_state", "page")]
+raw_citizens <- raw_citizens[, c("police_unit", "names",
+                                 "event_date", "event_place",
+                                 "missing_state", "page")]
 raw_citizens$event_date <- as.Date(raw_citizens$event_date, "%d/%m/%Y %H:%M:%S")
-duplicates <- raw_citizens %>% group_by(names) %>% summarise(n=n()) %>% filter(n>1)
+duplicates <- raw_citizens %>%
+  group_by(names) %>%
+  summarise(n = n()) %>%
+  filter(n > 1)
 raw_citizens$event_place <- toupper(raw_citizens$event_place)
 
 #order make fake data
 str(raw_citizens)
 
-
-# testing in excel LARGO(B2) - LARGO(SUSTITUIR(B2;" ";""))
-# tester <- c("CANDAMO VIDAL GLADYS ESTHER",
-#             "CHIPA YUPANQUI LAURA",
-#             "MURRIETA FRANCO KEN PATRIHT")
-# sample <- citizens[citizens$names %in% tester, ]
-
 # labeling wrong rows
-citizens <- raw_citizens[order(raw_citizens$names, desc(raw_citizens$missing_state), 
-                          desc(raw_citizens$event_date)), ]
-citizens <- citizens %>% group_by(names, missing_state) %>% mutate(numbering = row_number())
+citizens <- raw_citizens[order(raw_citizens$names,
+                               desc(raw_citizens$missing_state),
+                               desc(raw_citizens$event_date)), ]
+citizens <- citizens %>%
+  group_by(names, missing_state) %>%
+  mutate(numbering = row_number())
 citizens[citizens$numbering > 1, "error_label"] <- "duplicated name"
-citizens[citizens$names == ""| citizens$event_place == "", "error_label"] <- "no data"
+citizens[citizens$names == "" | citizens$event_place == "",
+         "error_label"] <- "no data"
 
 # separate two dataframes
 cleaned <- citizens %>% filter(is.na(error_label))
-cleaned <- cleaned[ , c("names", "event_date", "event_place", "missing_state")]
+cleaned <- cleaned[, c("names", "event_date", "event_place", "missing_state")]
 cleaned_0 <- cleaned[cleaned$missing_state == 0, ]
 cleaned_1 <- cleaned[cleaned$missing_state == 1, ]
 output <- merge(x = cleaned_1, y = cleaned_0, by = "names", all.x = TRUE)
-

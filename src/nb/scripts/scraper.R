@@ -7,7 +7,7 @@ library(rvest)
 # set the number of sections you want to scrape. every section has 10 pages
 # and 15 citizens
 start <- Sys.time()
-n <- 50
+n <- 2
 url_missed <- "https://desaparecidos.policia.gob.pe/Registrogeneral.aspx#"
 url_appeared <- "https://desaparecidos.policia.gob.pe/Registroaparecidos.aspx#"
 
@@ -101,12 +101,12 @@ export_dataframe <- function(df, file) {
 }
 
 citizens_missed <- scrape_citizens(url_missed, n, 1)
-export_dataframe(citizens_missed, "../data/scraped_missed.csv")
+export_dataframe(citizens_missed, "data/out/scraped_missed_.csv")
 
 print(Sys.time() - start)
 
 start <- Sys.time()
 citizens_appeared <- scrape_citizens(url_appeared, n, 0)
-export_dataframe(citizens_appeared, "../data/scraped_appeared.csv")
+export_dataframe(citizens_appeared, "data/out/scraped_appeared_.csv")
 
 print(Sys.time() - start)

@@ -2,15 +2,12 @@ library(RSelenium)
 library(netstat)
 library(tidyverse)
 library(rvest)
-library(RCurl)
-library(stringr)
-library(httr)
-
 
 ## crawling pages
 # set the number of sections you want to scrape. every section has 10 pages
 # and 15 citizens
-n <- 4
+start <- Sys.time()
+n <- 50
 url_missed <- "https://desaparecidos.policia.gob.pe/Registrogeneral.aspx#"
 url_appeared <- "https://desaparecidos.policia.gob.pe/Registroaparecidos.aspx#"
 
@@ -90,17 +87,26 @@ scrape_citizens <- function(url, n, state) {
   return(tbl)
 }
 
+export_dataframe <- function(df, file) {
+  library(dplyr)
+  police_unit <- name <- event_date <- event_place <- missing_state <- NULL
+  columns <- c("police_unit", "name", "event_date", "event_place",
+               "report_date", "page", "missing_state")
+  names(df) <- columns
+  df$event_date <- as.Date(df$event_date, "%d/%m/%Y %H:%M:%S")
+  df$event_place <- toupper(df$event_place)
+  df <- df %>%
+    select(police_unit, name, event_date, event_place, missing_state, page)
+  write.csv(df, file)
+}
+
 citizens_missed <- scrape_citizens(url_missed, n, 1)
+export_dataframe(citizens_missed, "../data/scraped_missed.csv")
+
+print(Sys.time() - start)
+
+start <- Sys.time()
 citizens_appeared <- scrape_citizens(url_appeared, n, 0)
-# prepare to export
-columns <- c("police_unit", "name", "event_date",
-             "event_place", "report_date", "page", "missing_state")
-names(citizens_missed) <- columns
-names(citizens_appeared) <- columns
-citizens <- rbind(citizens_missed, citizens_appeared)
-citizens <- citizens %>%
-  select(police_unit, name, event_date, event_place, missing_state, page)
+export_dataframe(citizens_appeared, "../data/scraped_appeared.csv")
 
-raw_citizens$event_date <- as.Date(raw_citizens$event_date, "%d/%m/%Y %H:%M:%S")
-
-write.csv(citizens, "../data/citizens.csv")
+print(Sys.time() - start)

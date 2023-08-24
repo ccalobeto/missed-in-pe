@@ -5,9 +5,17 @@ library(rvest)
 library(RCurl)
 library(stringr)
 library(httr)
+library(jsonlite)
+
 
 get_google_coordinates <- function(addresses) {
   ## return coordinates(lat, lon) given an input list of addresses
+  # import data
+  agents <- read.csv("../data/support/agents.csv")
+  ips <- read.csv("../data/support/ips.csv")
+  secrets <- read_json("../data/support/secrets.json")
+  # chunk
+  chunk = 5
   # convert input into a list
   search_query_url <- sapply(addresses, as.list)
   # percent-encode search request
@@ -17,17 +25,31 @@ get_google_coordinates <- function(addresses) {
   urls <- paste0(url_api, search_query_url)
   n <- length(addresses)
   coordinates <- list()
-  # to avoid block
-  user_a <- user_agent("Mozilla/5.0 (Macintosh; Intel Mac OS X 12_0_1) AppleWebKit/537.36 (KHTML, # nolint
-                        like Gecko) Chrome/95.0.4638.69 Safari/537.36")
-  proxy <- use_proxy(url = "185.199.229.156",
-                     port = 7492,
-                     username = "ambrosio",
-                     password = "gikpyh0vnhoj")
+  # ini
+  # user_a <- user_agent("Mozilla/5.0 (Macintosh; Intel Mac OS X 12_0_1) AppleWebKit/537.36 (KHTML, # nolint
+  #                       like Gecko) Chrome/95.0.4638.69 Safari/537.36")
+  # proxy <- use_proxy(url = "185.199.229.156",
+  #                    port = 7492,
+  #                    username = "ambrosio",
+  #                    password = "gikpyh0vnhoj")
   for (i in seq(1:n)) {
     #* web_session <- session(urls[i], user_a)
     #* html_page <- getURL(web_session$url)
     #* content <- read_html(html_page) %>% html_nodes("meta") %>% html_attr("content") # nolint
+    # iterate over agents
+    if (i == 1 | i %% chunk == 0) {
+      pick_agent <- agents$agent[sample(1:length(agents$agent), 1)]
+      random_row <- sample(1:length(ips$ip), 1)
+      pick_ip <- ips$ip[random_row]
+      pick_port <- ips$port[random_row]
+      user_a <- user_agent(pick_agent)
+      proxy <- use_proxy( url = pick_ip,
+                          port = pick_port,
+                          username = secrets$user,
+                          password = secrets$password
+                          )
+      print(pick_agent)
+    }
     response <- GET(urls[i], user_a, proxy)
     xml_doc <- response %>% content(as = "text") %>% read_html
     vector_char <- xml_doc %>% html_nodes("meta") %>% html_attr("content")
@@ -37,11 +59,15 @@ get_google_coordinates <- function(addresses) {
     coordinates[[i]] <- temp[1, ]
     Sys.sleep(.5)
   }
-  print(response$request)
+  # print(response$request)
   # convert list of lists to dataframe
   coordinates <- as.data.frame(do.call(rbind, coordinates))
   names(coordinates) <- c("latitude", "longitude")
   return(coordinates)
 }
 
-coordinates <- get_google_coordinates(citizens_details[1:20, 10])
+
+
+#coordinates <- get_google_coordinates(citizens_details[1:20, 10])
+
+

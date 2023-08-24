@@ -6,10 +6,12 @@ library(RCurl)
 library(stringr)
 library(httr)
 
+source(scripts/coordinates_scraper.R)
 ## prepare dataset
 # import data
-raw_citizens <- read.csv("../data/citizens.csv")
-
+df0 <- read.csv("../data/scraped_missed.csv")
+df <- read.csv("../data/scraped_appeared.csv")
+  
 duplicates <- raw_citizens %>%
   group_by(name) %>%
   summarise(n = n()) %>%

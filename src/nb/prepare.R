@@ -1,28 +1,26 @@
-library(RSelenium)
-library(netstat)
 library(tidyverse)
-library(rvest)
-library(RCurl)
-library(stringr)
-library(httr)
+source("scripts/coordinates_scraper.R")
 
-source(scripts/coordinates_scraper.R)
-## prepare dataset
-# import data
-df0 <- read.csv("../data/scraped_missed.csv")
-df <- read.csv("../data/scraped_appeared.csv")
+# import scraped datasets
+df_ <- read.csv("data/out/scraped_missed.csv")
+df <- read.csv("data/out/scraped_appeared.csv")
+df <- rbind(df_, df)
   
-duplicates <- raw_citizens %>%
+# get coordinates 
+coordinates <- get_google_coordinates(df[1:20, 5])
+
+duplicates <- df %>%
   group_by(name) %>%
   summarise(n = n()) %>%
   filter(n > 1)
-raw_citizens$event_place <- toupper(raw_citizens$event_place)
+df$event_place <- toupper(df$event_place)
 
-#order make fake data
-str(raw_citizens)
+# clean data
+# order make fake data
+str(df)
 
 # labeling wrong rows
-citizens <- raw_citizens[order(raw_citizens$name,
+df <- df[order(df$name,
                                desc(raw_citizens$missing_state),
                                desc(raw_citizens$event_date)), ]
 citizens <- citizens %>%

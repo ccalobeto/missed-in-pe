@@ -48,5 +48,6 @@ po/*~
 # RStudio Connect folder
 rsconnect/
 
-# old folder
+# project folder
+src/nb/data/support/
 old/

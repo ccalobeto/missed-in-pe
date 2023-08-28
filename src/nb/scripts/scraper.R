@@ -93,6 +93,9 @@ export_dataframe <- function(df, file) {
   columns <- c("police_unit", "name", "event_date", "event_place",
                "report_date", "page", "missing_state")
   names(df) <- columns
+  # initial preparation
+  df$event_date <- as.Date(df$event_date, "%d/%m/%Y %H:%M:%S")
+  df$event_place <- toupper(df$event_place)
   df <- df %>%
     select(police_unit, name, event_date, event_place, missing_state, page)
   write.csv(df, file, row.names = FALSE)

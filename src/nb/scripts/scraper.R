@@ -97,7 +97,7 @@ export_dataframe <- function(df, file) {
   df$event_place <- toupper(df$event_place)
   df <- df %>%
     select(police_unit, name, event_date, event_place, missing_state, page)
-  write.csv(df, file)
+  write.csv(df, file, row.names = FALSE)
 }
 
 citizens_missed <- scrape_citizens(url_missed, n, 1)

@@ -35,6 +35,19 @@ df <- df %>%
   ungroup() %>%
   filter(is.na(error_label)) %>%
   select(name, event_date, event_place, missing_state)
+# duplicated entries shifting the missing_state and calculate the difference
+df <- df %>%
+  group_by(name) %>%
+  mutate(diff = missing_state - lag(missing_state, default = NULL))
+df <- df %>% mutate(error_label = ifelse(diff == 0, "duplicated_entry", NA))
+more_mistakes <- df %>%
+  ungroup() %>%
+  filter(!is.na(error_label)) %>%
+  select(name, event_date, event_place, missing_state, error_label)
+df <- df %>%
+  ungroup() %>%
+  filter(is.na(error_label)) %>%
+  select(name, event_date, event_place, missing_state)
 # convert long to pivot data
 df0 <- df[df$missing_state == 0, ]
 df1 <- df[df$missing_state == 1, ]
